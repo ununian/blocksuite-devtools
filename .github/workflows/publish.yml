@@ -12,8 +12,8 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: "20"
-      - run: pnpm install
-      - run: pnpm run build
+      - run: npm install
+      - run: npm run build
       - uses: JS-DevTools/npm-publish@v3
         with:
           token: ${{ secrets.NPM_TOKEN }}
