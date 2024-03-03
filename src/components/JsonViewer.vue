@@ -1,11 +1,11 @@
 <script setup lang="ts" generic="T extends any, O extends any">
-import { EditorView, basicSetup } from 'codemirror'
-import { EditorState } from '@codemirror/state'
-import { javascript } from '@codemirror/lang-javascript'
 import * as jsondiffpatch from 'jsondiffpatch'
 import DiffMatchPatch from 'diff-match-patch'
 import * as htmlFormatter from 'jsondiffpatch/formatters/html'
 import 'jsondiffpatch/formatters/styles/html.css'
+import VueJsonPretty from 'vue-json-pretty'
+import 'vue-json-pretty/lib/styles.css'
+import type { Y } from '@blocksuite/store'
 
 const props = defineProps({
   value: {
@@ -17,22 +17,44 @@ const props = defineProps({
   },
 })
 
+function isYText(obj: any): obj is Y.Text {
+  return obj && (typeof obj.yText === 'object') && (typeof obj.toDelta === 'function')
+}
+
+function cycle(obj: any, parent?: any) {
+  // 表示调用的父级数组
+  const parentArr = parent || [obj]
+
+  for (const i in obj) {
+    if (typeof obj[i] === 'object') {
+      // 判断是否有循环引用
+      parentArr.forEach((pObj: any) => {
+        if (pObj === obj[i])
+          obj[i] = '[Cycle]'
+      })
+      cycle(obj[i], [...parentArr, obj[i]])
+
+      if (isYText(obj[i])) {
+        obj[i] = {
+          type: '[YText]',
+          text: obj[i].toString(),
+          delta: obj[i].toDelta(),
+        }
+      }
+    }
+  }
+
+  return obj
+}
+
 const mode = computed(() => props.diffValue ? 'diff' : 'normal')
 
-const editorContainer = ref<HTMLDivElement>()
 const jsonDiffContainer = ref<HTMLDivElement>()
 
 const showUnchangeDiff = ref(true)
 
-let codeEditor: EditorView | null = null
 let diffEditor: jsondiffpatch.DiffPatcher | null = null
 onMounted(() => {
-  codeEditor = new EditorView({
-    doc: JSON.stringify(props.value, null, 2),
-    extensions: [basicSetup, javascript()],
-    parent: editorContainer.value!,
-  })
-
   diffEditor = jsondiffpatch.create({
   // used to match objects when diffing arrays, by default only === operator is used
     objectHash(obj: any) {
@@ -68,7 +90,7 @@ onMounted(() => {
 })
 
 function refreshRender() {
-  if (codeEditor && props.value) {
+  if (props.value) {
     if (props.diffValue && diffEditor) {
       const diff = diffEditor.diff(
         props.value,
@@ -76,12 +98,6 @@ function refreshRender() {
       )
       const html = htmlFormatter.format(diff, props.value)
       jsonDiffContainer.value!.innerHTML = html || ''
-    }
-    else {
-      codeEditor.setState(EditorState.create({
-        doc: JSON.stringify(props.value, null, 2),
-        extensions: [basicSetup, javascript()],
-      }))
     }
   }
 }
@@ -102,7 +118,9 @@ watch(showUnchangeDiff, () => {
 
 <template>
   <div h-full overflow-y-auto>
-    <div v-show="mode === 'normal'" id="codemirror-json-viewer" ref="editorContainer" />
+    <div v-show="mode === 'normal'" id="codemirror-json-viewer">
+      <VueJsonPretty :data="cycle(value)" />
+    </div>
     <div v-show="mode === 'diff'" id="json-diff" relative h-full>
       <div class="align-items-center sticky top-2 flex justify-end">
         <Checkbox v-model="showUnchangeDiff" :binary="true" />
