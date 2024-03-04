@@ -5,7 +5,7 @@ import * as htmlFormatter from 'jsondiffpatch/formatters/html'
 import 'jsondiffpatch/formatters/styles/html.css'
 import VueJsonPretty from 'vue-json-pretty'
 import 'vue-json-pretty/lib/styles.css'
-import type { Y } from '@blocksuite/store'
+import { cloneWithYType } from '~/utils/cloneWithYType'
 
 const props = defineProps({
   value: {
@@ -17,35 +17,11 @@ const props = defineProps({
   },
 })
 
-function isYText(obj: any): obj is Y.Text {
-  return obj && (typeof obj.yText === 'object') && (typeof obj.toDelta === 'function')
-}
+const { cloned: displayJSON, sync } = useCloned(() => props.value, { clone: cloneWithYType })
 
-function cycle(obj: any, parent?: any) {
-  // 表示调用的父级数组
-  const parentArr = parent || [obj]
-
-  for (const i in obj) {
-    if (typeof obj[i] === 'object') {
-      // 判断是否有循环引用
-      parentArr.forEach((pObj: any) => {
-        if (pObj === obj[i])
-          obj[i] = '[Cycle]'
-      })
-      cycle(obj[i], [...parentArr, obj[i]])
-
-      if (isYText(obj[i])) {
-        obj[i] = {
-          type: '[YText]',
-          text: obj[i].toString(),
-          delta: obj[i].toDelta(),
-        }
-      }
-    }
-  }
-
-  return obj
-}
+watch(() => props.value, () => {
+  sync()
+})
 
 const mode = computed(() => props.diffValue ? 'diff' : 'normal')
 
@@ -76,7 +52,7 @@ onMounted(() => {
     },
     propertyFilter(name, _context) {
     /*
-       this optional function can be specified to ignore object properties (eg. volatile data)
+        this optional function can be specified to ignore object properties (eg. volatile data)
         name: property name, present in either context.left or context.right objects
         context: the diff context (has context.left and context.right objects)
       */
@@ -119,7 +95,7 @@ watch(showUnchangeDiff, () => {
 <template>
   <div h-full overflow-y-auto>
     <div v-show="mode === 'normal'" id="codemirror-json-viewer">
-      <VueJsonPretty :data="cycle(value)" />
+      <VueJsonPretty :data="displayJSON" />
     </div>
     <div v-show="mode === 'diff'" id="json-diff" relative h-full>
       <div class="align-items-center sticky top-2 flex justify-end">
