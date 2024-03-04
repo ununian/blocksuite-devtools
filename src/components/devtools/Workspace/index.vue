@@ -13,7 +13,7 @@ const displayObject = computed(() => {
     case 'Meta':
       return meta.jsonValue
     case 'Schema':
-      return schema.value
+      return schema.value?.toJSON()
     case 'Blob':
       return blobList.value
   }

@@ -26,6 +26,9 @@ export function cloneWithYType(x: any, cache = new WeakMap()): any {
       }
     }
 
+    if (typeof x.toJSON === 'function')
+      return x.toJSON()
+
     if (x.constructor !== Object && typeof x.constructor === 'function') {
       tmp = new x.constructor()
       cache.set(x, tmp)
